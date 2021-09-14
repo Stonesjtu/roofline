@@ -3,12 +3,8 @@ from matplotlib import rc
 # rc('text', usetex=True) # this is if you want to use latex to print text. If you do you can create strings that go on labels or titles like this for example (with an r in front): r"$n=$ " + str(int(n))
 from pylab import matplotlib, xticks, yticks
 import numpy as np
-import random
-from matplotlib.font_manager import FontProperties
 import matplotlib.pyplot as plt
-import matplotlib.lines as lns
 from scipy import stats
-from matplotlib.patches import Polygon
 import matplotlib.font_manager as fm
 
 font = fm.FontProperties(
@@ -17,19 +13,18 @@ font = fm.FontProperties(
 
 background_color = (0.85, 0.85, 0.85)  # '#C0C0C0'
 grid_color = 'white'  # FAFAF7'
-matplotlib.rc('axes', facecolor=background_color)
-matplotlib.rc('axes', edgecolor=grid_color)
-matplotlib.rc('axes', linewidth=1.2)
-matplotlib.rc('axes', grid=True)
-matplotlib.rc('axes', axisbelow=True)
-matplotlib.rc('grid', color=grid_color)
-matplotlib.rc('grid', linestyle='-')
-matplotlib.rc('grid', linewidth=0.7)
-matplotlib.rc('xtick.major', size=0)
-matplotlib.rc('xtick.minor', size=0)
-matplotlib.rc('ytick.major', size=0)
-matplotlib.rc('ytick.minor', size=0)
-#matplotlib.rc('font', family='serif')
+rc('axes', facecolor=background_color)
+rc('axes', edgecolor=grid_color)
+rc('axes', linewidth=1.2)
+rc('axes', grid=True)
+rc('axes', axisbelow=True)
+rc('grid', color=grid_color)
+rc('grid', linestyle='-')
+rc('grid', linewidth=0.7)
+rc('xtick.major', size=0)
+rc('xtick.minor', size=0)
+rc('ytick.major', size=0)
+rc('ytick.minor', size=0)
 
 
 def addPerfLine(peakPerf, label):
