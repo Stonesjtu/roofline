@@ -1,8 +1,8 @@
 import math
 from matplotlib import rc
 # rc('text', usetex=True) # this is if you want to use latex to print text. If you do you can create strings that go on labels or titles like this for example (with an r in front): r"$n=$ " + str(int(n))
-from numpy import *
-from pylab import *
+from pylab import matplotlib, xticks, yticks
+import numpy as np
 import random
 from matplotlib.font_manager import FontProperties
 import matplotlib.pyplot as plt
@@ -12,7 +12,7 @@ from matplotlib.patches import Polygon
 import matplotlib.font_manager as fm
 
 font = fm.FontProperties(
-    family='Gill Sans', fname='GillSans.ttc')
+    family='Dejavu Sans')
 
 
 background_color = (0.85, 0.85, 0.85)  # '#C0C0C0'
@@ -51,23 +51,128 @@ def addBWLine(BW, label):
     yCoordinateTransformed = (
         math.log(X_MIN*BW)-math.log(Y_MIN))/(math.log(Y_MAX/Y_MIN))+0.16
     ax.text(X_MIN*1.1, (X_MIN*1.1*BW)*1.1, label+' ('+str(BW)+' B/C)', fontsize=8,
-            rotation=np.arctan(INVERSE_GOLDEN_RATIO * AXIS_ASPECT_RATIO) * 180 / np.pi, verticalalignment='bottom')
+            rotation=math.atan(INVERSE_GOLDEN_RATIO * AXIS_ASPECT_RATIO) * 180 / math.pi, verticalalignment='bottom')
     #~ ax.text(0.01,yCoordinateTransformed+0.05+0.0075*(len(str(BW))-1), label+' ('+str(BW)+' B/C)',fontsize=8, rotation=45, transform=ax.transAxes)
 
+def add_operation():
+    # Load the data
+    pp = []
+    ss = []
+    for serie, i in zip(series, range(len(series))):
+        nCycles = []
+        file_in = open('tsc_'+serie+'.txt', 'r')
+        lines = file_in.readlines()
+        for line in lines:
+            split_line = line.rstrip('\n').split(' ')
+            nCycles.append(split_line)
+
+        file_in.close()
+
+        nFLOPS = []
+        file_in = open('flop_'+serie+'.txt', 'r')
+        lines = file_in.readlines()
+        for line in lines:
+            split_line = line.rstrip('\n').split(' ')
+            nFLOPS.append(split_line)
+
+        file_in.close()
+
+        bytesTransferred = []
+        file_in = open('bytes_transferred_'+serie+'.txt', 'r')
+        lines = file_in.readlines()
+        for line in lines:
+            split_line = line.rstrip('\n').split(' ')
+            bytesTransferred.append(split_line)
+
+        file_in.close()
+
+        yData = []
+        for f, c in zip(nFLOPS, nCycles):
+            yData.append([float(vf)/float(vc)
+                        for vf, vc in zip(f, c) if vf != '' and vc != ''])
+
+        xData = []
+        for f, b in zip(nFLOPS, bytesTransferred):
+            xDataTmp = []
+            for vf, vb in zip(f, b):
+                if vf != '' and vb != '' and float(vb) != 0:
+                    xDataTmp.append(float(vf)/float(vb))
+                if float(vb) == 0:
+                    xDataTmp.append(float(vf)/X_MAX)
+            xData.append(xDataTmp)
+
+        x = []
+        xerr_low = []
+        xerr_high = []
+        yerr_high = []
+        y = []
+        yerr_low = []
+
+        for xDataItem in xData:
+            x.append(stats.scoreatpercentile(xDataItem, 50))
+            xerr_low.append(stats.scoreatpercentile(xDataItem, 25))
+            xerr_high.append(stats.scoreatpercentile(xDataItem, 75))
+
+        for yDataItem in yData:
+            y.append(stats.scoreatpercentile(yDataItem, 50))
+            yerr_low.append(stats.scoreatpercentile(yDataItem, 25))
+            yerr_high.append(stats.scoreatpercentile(yDataItem, 75))
+
+        xerr_low = [a - b for a, b in zip(x, xerr_low)]
+        xerr_high = [a - b for a, b in zip(xerr_high, x)]
+        yerr_low = [a - b for a, b in zip(y, yerr_low)]
+        yerr_high = [a - b for a, b in zip(yerr_high, y)]
+
+        p, = ax.plot(x, y, '-', color=colors[i], label=serie)
+        pp.append(p)
+        ss.append(serie)
+        ax.errorbar(x, y, yerr=[yerr_low, yerr_high], xerr=[xerr_low, xerr_high],
+                    fmt='b.', elinewidth=0.4, ecolor='Black', capsize=0, color=colors[i])
+
+        # Read sizes
+        sizes = []
+        file_in = open('size_'+serie+'.txt', 'r')
+        lines = file_in.readlines()
+        for line in lines:
+            split_line = line.rstrip('\n').split(' ')
+            sizes.append(split_line)
+
+        file_in.close()
+
+        if ANNOTATE_POINTS:
+            ax.annotate(sizes[0][0],
+                        xy=(x[0], y[0]), xycoords='data',
+                        xytext=(+3, +1), textcoords='offset points', fontsize=8)
+
+            ax.annotate(sizes[0][len(sizes[0])-1],
+                        xy=(x[len(x)-1], y[len(y)-1]), xycoords='data',
+                        xytext=(+3, +1), textcoords='offset points', fontsize=8)
+    # Work around to get rid of the problem with frameon=False and the extra space generated in the plot
+    ax.legend(pp, ss, numpoints=1, loc='best',
+            fontsize=6).get_frame().set_visible(False)
+    #ax.legend(pp,ss, numpoints=1, loc='best',fontsize =6,frameon = False )
 
 X_MIN = 0.01
 X_MAX = 100.0
 Y_MIN = 0.01
 Y_MAX = 50.0
-# PEAK_PERF=8.0
-# PEAK_BW=11.95
-PEAK_PERF = [2.0, 2.0]
-PEAK_PERF_LABELS = ['Scalar Peak Performance']
-PEAK_BW = [6.3]
-PEAK_BW_LABELS = ['Bandwidth']
+PEAK_PERF = [2.0]
+PEAK_PERF_LABELS = ['FP32']
+# SRAM 400Mhz DSP 625Mhz
+SRAM_FREQ = 400
+DSP_FREQ = 625
+SRAM_BIT = 64
+SRAM_BW = SRAM_FREQ / DSP_FREQ * SRAM_BIT / 8
+
+PSRAM_FREQ = 400
+PSRAM_BIT = 8
+PSRAM_BW = PSRAM_FREQ / DSP_FREQ * PSRAM_BIT / 8
+
+PEAK_BW = [16, SRAM_BW, PSRAM_BW]
+PEAK_BW_LABELS = ['L1 cache', 'SRAM', 'PSRAM']
 
 INVERSE_GOLDEN_RATIO = 0.618
-OUTPUT_FILE = "data-rooflinePlot.pdf"
+OUTPUT_FILE = "data-rooflinePlot.png"
 TITLE = ""
 X_LABEL = "Operational Intensity [Flops/Byte]"
 Y_LABEL = "Performance [Flops/Cycle]"
@@ -141,122 +246,14 @@ for i in range(minloc, maxloc):
         newlabels.append(r'$10^ %d$' % i)
 yticks(newlocs, newlabels)
 
-# Load the data
-
-pp = []
-ss = []
-for serie, i in zip(series, range(len(series))):
-    nCycles = []
-    file_in = open('tsc_'+serie+'.txt', 'r')
-    lines = file_in.readlines()
-    for line in lines:
-        split_line = line.rstrip('\n').split(' ')
-        nCycles.append(split_line)
-
-    file_in.close()
-
-    nFLOPS = []
-    file_in = open('flop_'+serie+'.txt', 'r')
-    lines = file_in.readlines()
-    for line in lines:
-        split_line = line.rstrip('\n').split(' ')
-        nFLOPS.append(split_line)
-
-    file_in.close()
-
-    bytesTransferred = []
-    file_in = open('bytes_transferred_'+serie+'.txt', 'r')
-    lines = file_in.readlines()
-    for line in lines:
-        split_line = line.rstrip('\n').split(' ')
-        bytesTransferred.append(split_line)
-
-    file_in.close()
-
-    yData = []
-    for f, c in zip(nFLOPS, nCycles):
-        yData.append([float(vf)/float(vc)
-                      for vf, vc in zip(f, c) if vf != '' and vc != ''])
-
-    xData = []
-    for f, b in zip(nFLOPS, bytesTransferred):
-        xDataTmp = []
-        for vf, vb in zip(f, b):
-            if vf != '' and vb != '' and float(vb) != 0:
-                xDataTmp.append(float(vf)/float(vb))
-            if float(vb) == 0:
-                xDataTmp.append(float(vf)/X_MAX)
-        xData.append(xDataTmp)
-
-    x = []
-    xerr_low = []
-    xerr_high = []
-    yerr_high = []
-    y = []
-    yerr_low = []
-
-    for xDataItem in xData:
-        x.append(stats.scoreatpercentile(xDataItem, 50))
-        xerr_low.append(stats.scoreatpercentile(xDataItem, 25))
-        xerr_high.append(stats.scoreatpercentile(xDataItem, 75))
-
-    for yDataItem in yData:
-        y.append(stats.scoreatpercentile(yDataItem, 50))
-        yerr_low.append(stats.scoreatpercentile(yDataItem, 25))
-        yerr_high.append(stats.scoreatpercentile(yDataItem, 75))
-
-    xerr_low = [a - b for a, b in zip(x, xerr_low)]
-    xerr_high = [a - b for a, b in zip(xerr_high, x)]
-    yerr_low = [a - b for a, b in zip(y, yerr_low)]
-    yerr_high = [a - b for a, b in zip(yerr_high, y)]
-
-    p, = ax.plot(x, y, '-', color=colors[i], label=serie)
-    pp.append(p)
-    ss.append(serie)
-    ax.errorbar(x, y, yerr=[yerr_low, yerr_high], xerr=[xerr_low, xerr_high],
-                fmt='b.', elinewidth=0.4, ecolor='Black', capsize=0, color=colors[i])
-
-    # Read sizes
-    sizes = []
-    file_in = open('size_'+serie+'.txt', 'r')
-    lines = file_in.readlines()
-    for line in lines:
-        split_line = line.rstrip('\n').split(' ')
-        sizes.append(split_line)
-
-    file_in.close()
-
-    if ANNOTATE_POINTS:
-        ax.annotate(sizes[0][0],
-                    xy=(x[0], y[0]), xycoords='data',
-                    xytext=(+3, +1), textcoords='offset points', fontsize=8)
-
-        ax.annotate(sizes[0][len(sizes[0])-1],
-                    xy=(x[len(x)-1], y[len(y)-1]), xycoords='data',
-                    xytext=(+3, +1), textcoords='offset points', fontsize=8)
-
-# Work around to get rid of the problem with frameon=False and the extra space generated in the plot
-ax.legend(pp, ss, numpoints=1, loc='best',
-          fontsize=6).get_frame().set_visible(False)
-#ax.legend(pp,ss, numpoints=1, loc='best',fontsize =6,frameon = False )
-
 
 # Peak performance line and text
 for p, l in zip(PEAK_PERF, PEAK_PERF_LABELS):
     addPerfLine(p, l)
 
-#ax.axhline(y=PEAK_PERF, linewidth=0.75, color='black')
-#yCoordinateTransformed = (log(PEAK_PERF)-log(Y_MIN))/(log(Y_MAX/Y_MIN))
-#ax.text(0.76,yCoordinateTransformed+0.01, "Peak Performance ("+str(PEAK_PERF)+" F/C)", fontsize=8, transform=ax.transAxes)
-
 # BW line and text
 for bw, l in zip(PEAK_BW, PEAK_BW_LABELS):
     addBWLine(bw, l)
-#x = np.linspace(X_MIN, X_MAX, X_MAX)
-#y = x*PEAK_BW
-#ax.plot(x, y, linewidth=0.75, color='black')
-# yCoordinateTransformed = (log(X_MIN*PEAK_BW)-log(Y_MIN))/(log(Y_MAX/Y_MIN))+0.16 #0.16 is the offset of the lower axis
-#ax.text(0.01,yCoordinateTransformed+0.05+0.0075*(len(str(PEAK_BW))-1),'MemLoad ('+str(PEAK_BW)+' B/C)',fontsize=8, rotation=45, transform=ax.transAxes)
 
 
 # save file
