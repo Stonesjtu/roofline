@@ -21,7 +21,7 @@ import argparse
 import numpy
 import matplotlib.pyplot
 import matplotlib
-matplotlib.rc('font', family='Arial')
+# matplotlib.rc('font', family='Arial')
 
 
 # Constants
@@ -84,15 +84,16 @@ def process(hw_platforms, sw_apps, xkcd):
     # Plot the graphs
     if xkcd:
         matplotlib.pyplot.xkcd()
-    fig, axes = matplotlib.pyplot.subplots(1, 2)
+    fig, axes = matplotlib.pyplot.subplots(1, 2, figsize=(20,10))
+    LOGBASE = 10
     for axis in axes:
-        axis.set_xscale('log', basex=2)
-        axis.set_yscale('log', basey=2)
+        axis.set_xscale('log', basex=LOGBASE)
+        axis.set_yscale('log', basey=LOGBASE)
         axis.set_xlabel('Arithmetic Intensity (FLOP/byte)', fontsize=12)
         axis.grid(True, which='major')
 
     matplotlib.pyplot.setp(axes, xticks=arithmetic_intensity,
-                           yticks=numpy.logspace(1, 20, num=20, base=2))
+                           yticks=numpy.logspace(1, 20, num=20, base=LOGBASE))
 
     axes[0].set_ylabel("Achieveable Performance (GFLOP/s)", fontsize=12)
     axes[1].set_ylabel("Normalized Achieveable Performance (MFLOP/s/$)", fontsize=12)
@@ -102,21 +103,23 @@ def process(hw_platforms, sw_apps, xkcd):
 
     for idx, val in enumerate(platforms):
         axes[0].plot(arithmetic_intensity, achievable_performance[idx, 0:],
-                     label=val, marker='o')
+                     label=val)#, marker='o')
         axes[1].plot(arithmetic_intensity, norm_achievable_performance[idx, 0:],
-                     label=val, marker='o')
+                     label=val)#, marker='o')
 
     if sw_apps != []:
         color = matplotlib.pyplot.cm.rainbow(numpy.linspace(0, 1, len(apps)))
-        for idx, val in enumerate(apps):
+        for idx, (op_name, op_ai, op_achieved_flop) in enumerate(sw_apps):
             for axis in axes:
-                axis.axvline(apps_intensity[idx], label=val,
+                axis.axvline(op_ai, label=op_name,
                              linestyle='-.', marker='x', color=color[idx])
+                axis.plot(op_ai, op_achieved_flop, label=op_name + 'current', marker='x', color=color[idx])
 
     for axis in axes:
         axis.legend()
     fig.tight_layout()
     matplotlib.pyplot.show()
+    matplotlib.pyplot.savefig('out.png')
 
 
 def read_file(filename, row_len, csv_name):
@@ -165,7 +168,7 @@ def main():
         apps = list()
     else:
         print("Reading applications intensities...")
-        apps = read_file(args.a, 2, "SW CSV")
+        apps = read_file(args.a, 3, "SW CSV")
 
     print(hw_platforms)
     print("Plotting using XKCD plot style is set to %s" % (args.xkcd))
