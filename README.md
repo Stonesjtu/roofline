@@ -1,5 +1,8 @@
-Roofline.py
+Roofline Plotter for Python
 ===========
+
+> Forked from [perfplot](https://github.com/GeorgOfenbeck/perfplot) and
+> [roofline.py](https://github.com/mohamed/roofline)
 
 This is a simple script to plot the [Roofline model](https://dl.acm.org/citation.cfm?id=1498785) of
 given HW platforms and given applications.
