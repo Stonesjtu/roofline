@@ -34,9 +34,9 @@ matplotlib.rc('ytick.minor', size=0)
 
 def addPerfLine(peakPerf, label):
     # Peak performance line and text
-    ax.axhline(y=peakPerf, linewidth=0.75, color='black')
+    ax.axhline(y=peakPerf, linewidth=0.75, color='orange')
     #ax.text(X_MAX/10.0, PEAK_PERF+(PEAK_PERF)/10, "Peak Performance ("+str(PEAK_PERF)+" F/C)", fontsize=8)
-    label_string = label+" ("+str(peakPerf)+" F/C)"
+    label_string = label+" ("+str(peakPerf)+" Ops/C)"
     yCoordinateTransformed = (
         math.log(peakPerf)-math.log(Y_MIN))/(math.log(Y_MAX/Y_MIN))
     ax.text(1 - len(label_string) / 120. - 0.01, yCoordinateTransformed +
@@ -46,7 +46,7 @@ def addPerfLine(peakPerf, label):
 def addBWLine(BW, label):
     x = np.linspace(X_MIN, X_MAX, 10)
     y = x*BW
-    ax.plot(x, y, linewidth=0.75, color='black')
+    ax.plot(x, y, linewidth=0.75, color='blue')
     # 0.16 is the offset of the lower axis
     yCoordinateTransformed = (
         math.log(X_MIN*BW)-math.log(Y_MIN))/(math.log(Y_MAX/Y_MIN))+0.16
@@ -54,7 +54,7 @@ def addBWLine(BW, label):
             rotation=math.atan(INVERSE_GOLDEN_RATIO * AXIS_ASPECT_RATIO) * 180 / math.pi, verticalalignment='bottom')
     #~ ax.text(0.01,yCoordinateTransformed+0.05+0.0075*(len(str(BW))-1), label+' ('+str(BW)+' B/C)',fontsize=8, rotation=45, transform=ax.transAxes)
 
-def add_operation():
+def add_profiling_operation():
     # Load the data
     pp = []
     ss = []
@@ -152,12 +152,40 @@ def add_operation():
             fontsize=6).get_frame().set_visible(False)
     #ax.legend(pp,ss, numpoints=1, loc='best',fontsize =6,frameon = False )
 
+def add_ideal_operation():
+    headers = ('op_name', 'cycle', 'flop', 'memory_access')
+    K = 2 ** 10
+    M = 2 ** 20
+    ops = [
+        # Common DSP workload
+        ('fft-1024-fp32', 6741, 1024 * 10, 1024 * 4 ),
+        ('fft-512-fp32', 3452, 512 * 9, 512 * 4 ),
+        # data move: Burst 512
+        ('SRAM -> NPU', 67826, 256 * K, 256 * K),
+        ('PSRAM -> NPU', 558 * K, 256 * K, 256 * K),
+        ('PSRAM -> NPU + calculate', 731 * K, 330 * K, 330 * K),
+        # Speech Process
+        ('CAE on SRAM', 5.9 * M, 1.2 * M, 1.2 * M),
+        ('CAE on PSRAM', 12.7 * M, 1.2 * M, 1.2 * M),
+    ]
+    pp = []
+    ss = []
+    for idx, (op_name, cycle, flop, memory_access) in enumerate(ops):
+        ai = flop / memory_access
+        flop_per_cycle = flop / cycle
+        p, = ax.plot(ai, flop_per_cycle, 'x', color=colors[idx], label=op_name)
+        pp.append(p)
+        ss.append(op_name)
+
+    ax.legend(pp, ss, numpoints=1, loc='best',
+            fontsize=6).get_frame().set_visible(False)
+
 X_MIN = 0.01
 X_MAX = 100.0
-Y_MIN = 0.01
+Y_MIN = 0.001
 Y_MAX = 50.0
-PEAK_PERF = [2.0]
-PEAK_PERF_LABELS = ['FP32']
+PEAK_PERF = [4, 16]
+PEAK_PERF_LABELS = ['FP32', 'int8']
 # SRAM 400Mhz DSP 625Mhz
 SRAM_FREQ = 400
 DSP_FREQ = 625
@@ -174,8 +202,8 @@ PEAK_BW_LABELS = ['L1 cache', 'SRAM', 'PSRAM']
 INVERSE_GOLDEN_RATIO = 0.618
 OUTPUT_FILE = "data-rooflinePlot.png"
 TITLE = ""
-X_LABEL = "Operational Intensity [Flops/Byte]"
-Y_LABEL = "Performance [Flops/Cycle]"
+X_LABEL = "Arithmetic Intensity [Ops/Byte]"
+Y_LABEL = "Performance [Ops/Cycle]"
 ANNOTATE_POINTS = 1
 AXIS_ASPECT_RATIO = math.log10(X_MAX/X_MIN)/math.log10(Y_MAX/Y_MIN)
 
@@ -193,7 +221,7 @@ series = ['Accumulators-double-warm1', 'Accumulators-double-warm2', 'Accumulator
 #series = ['daxpy-cold', 'daxpy-warm', 'daxpy-parallel-cold', 'daxpy-parallel-warm','fft-cold', 'fft-warm', 'fft-parallel-cold', 'fft-parallel-warm', 'dgemv-cold', 'dgemv-warm', 'dgemv-parallel-cold', 'dgemv-parallel-warm','dgemm-cold', 'dgemm-warm', 'dgemm-parallel-cold', 'dgemm-parallel-warm' ]
 colors = [(0.6, 0.011, 0.043), (0.258, 0.282, 0.725), (0.2117, 0.467, 0.216),
           '#CC0033', '#FFFF00', 'green', 'cyan', 'yellow', 'brown', 'orange']
-fig = plt.figure()
+fig = plt.figure(dpi=250)
 # Returns the Axes instance
 ax = fig.add_subplot(111)
 
@@ -206,11 +234,9 @@ ax.set_title(TITLE, fontsize=14, fontweight='bold')
 ax.set_xlabel(X_LABEL, fontproperties=font, fontsize=12)
 ax.set_ylabel(Y_LABEL, fontproperties=font, fontsize=12)
 
-
 # x-y range
 ax.axis([X_MIN, X_MAX, Y_MIN, Y_MAX])
 ax.set_aspect(INVERSE_GOLDEN_RATIO*AXIS_ASPECT_RATIO)
-
 
 # Manually adjust xtick/ytick labels when log scale
 locs, labels = xticks()
@@ -246,7 +272,6 @@ for i in range(minloc, maxloc):
         newlabels.append(r'$10^ %d$' % i)
 yticks(newlocs, newlabels)
 
-
 # Peak performance line and text
 for p, l in zip(PEAK_PERF, PEAK_PERF_LABELS):
     addPerfLine(p, l)
@@ -255,6 +280,6 @@ for p, l in zip(PEAK_PERF, PEAK_PERF_LABELS):
 for bw, l in zip(PEAK_BW, PEAK_BW_LABELS):
     addBWLine(bw, l)
 
-
+add_ideal_operation()
 # save file
 fig.savefig(OUTPUT_FILE, dpi=250,  bbox_inches='tight')
